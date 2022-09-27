@@ -1,0 +1,87 @@
+version: "3.9"
+
+services:
+  gitlab-runner:
+    image: "gitlab/gitlab-runner:alpine3.15-v15.2.2"
+    container_name: "gitlab-runner"
+    hostname: "gitlab-runner"
+    restart: "unless-stopped"
+    depends_on:
+      - "gitlab-server"
+    networks:
+      gitlab:
+        ipv4_address: "192.168.10.3"
+    extra_hosts:
+      - "gitlab.< domain name >:< GitLab server IPv4 address >"
+    volumes:
+      - type: "bind"
+        source: "./gitlab-runner/config.toml"
+        target: "/etc/gitlab-runner/config.toml"
+        read_only: true
+      - type: "bind"
+        source: "./ssl"
+        target: "/etc/gitlab-runner/certs"
+        read_only: true
+      - type: "bind"
+        source: "/var/run/docker.sock"
+        target: "/var/run/docker.sock"
+
+  gitlab-server:
+    image: "gitlab/gitlab-ee:15.4.0-ee.0"
+    container_name: "gitlab-server"
+    hostname: "gitlab-server"
+    restart: "unless-stopped"
+    networks:
+      gitlab:
+        ipv4_address: "192.168.10.2"
+    ports:
+      - "< GitLab server IPv4 address >:22:22"
+      - "< GitLab server IPv4 address >:80:80"
+      - "< GitLab server IPv4 address >:443:443"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url "https://gitlab.< domain name >"
+        gitlab_rails['time_zone'] = "< Linux timezone >"
+        nginx['listen_port'] = 443
+        nginx['redirect_http_to_https'] = true
+        nginx['ssl_certificate'] = "/etc/ssl/certs/gitlab/gitlab.< domain name >.crt"
+        nginx['ssl_certificate_key'] = "/etc/ssl/certs/gitlab/gitlab.< domain name >.key"
+    volumes:
+      - type: "bind"
+        source: "./ssl"
+        target: "/etc/ssl/certs/gitlab"
+        read_only: true
+      - type: "volume"
+        source: "gitlab-server-config"
+        target: "/etc/gitlab"
+      - type: "volume"
+        source: "gitlab-server-data"
+        target: "/var/opt/gitlab"
+      - type: "volume"
+        source: "gitlab-server-log"
+        target: "/var/log/gitlab"
+
+networks:
+  gitlab:
+    name: "gitlab"
+    driver: "bridge"
+    driver_opts:
+      com.docker.network.bridge.name: "br0"
+    ipam:
+      driver: "default"
+      config:
+        - subnet: "192.168.10.0/24"
+          gateway: "192.168.10.1"
+
+volumes:
+  gitlab-server-config:
+    name: "gitlab-server-config"
+    driver: "local"
+
+  gitlab-server-data:
+    name: "gitlab-server-data"
+    driver: "local"
+  
+  gitlab-server-log:
+    name: "gitlab-server-log"
+    driver: "local"

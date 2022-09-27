@@ -1,0 +1,14 @@
+# GitLab
+gitlab-runner
+
+# JetBrains
+.idea
+
+# Secure Sockets Layer (SSL)
+ssl
+
+# Source control
+.git
+
+# Visual Studio Code
+.vscode
